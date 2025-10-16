@@ -16,7 +16,7 @@ Speculative decoding is a widely adopted technique for accelerating inference in
 
 ## Requirements
 
-The code requires `python>=3.8` and `transformers==4.49`. You can install the dependencies using pip:
+The code requires `python>=3.10` and `transformers==4.51.3`. You can install the dependencies using pip:
 
 ```bash
 pip install -r requirements.txt
