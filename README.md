@@ -90,7 +90,7 @@ accelerate launch --multi_gpu \
   --begin-epoch=0 \
   --bs=1 \
   --configpath=vispec/train/<yourconfig.json> \
-  --lr=3e-6 \
+  --lr=3e-5 \
   --max-len=4096 \
   --num-workers=8 \
   --tmpdir=<path_to_text_data_folder>
