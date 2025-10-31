@@ -134,6 +134,8 @@ accelerate launch --multi_gpu \
 
 Evaluate the inference speed of the model using both standard autoregressive decoding (baseline) and speculative decoding.
 
+**Note:** You may safely ignore warnings like `rotary_emb.inv_freq` being newly initialized.
+
 #### Baseline Speed Evaluation
 
 ```bash
