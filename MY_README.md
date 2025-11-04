@@ -1,3 +1,7 @@
+0. Install Requirements
+
+pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
+
 1. Training Data Generation
 
 1.1 Generating Text-Only Data for Initial Training
