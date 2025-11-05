@@ -1,7 +1,3 @@
-0. Install Requirements
-
-pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
-
 1. Training Data Generation
 
 1.1 Generating Text-Only Data for Initial Training
@@ -71,7 +67,7 @@ accelerate launch --multi_gpu \
 ```bash
 CUDA_VISIBLE_DEVICES=0 python -m vispec.evaluation.gen_baseline_answer_mmvet \
   --base-model-path=/data/youngmin/models/llava-v1.6-vicuna-7b-hf \
-  --bench-name=/data/youngmin/results/test \
+  --bench-name=/data/youngmin/results/test_67999 \
   --spec-model-path=/data/youngmin/models/ViSpec-llava-v1.6-vicuna-7b-hf \
   --temperature=0.0
 ```
@@ -82,7 +78,7 @@ CUDA_VISIBLE_DEVICES=0 python -m vispec.evaluation.gen_baseline_answer_mmvet \
 ```bash
 CUDA_VISIBLE_DEVICES=0 python -m vispec.evaluation.gen_spec_answer_mmvet \
   --base-model-path=/data/youngmin/models/llava-v1.6-vicuna-7b-hf \
-  --bench-name=/data/youngmin/results/test \
+  --bench-name=/data/youngmin/results/test_67999 \
   --spec-model-path=/data/youngmin/checkpoints/fine/state_20 \
   --num-q=2 \
   --depth=3 \
@@ -92,3 +88,5 @@ CUDA_VISIBLE_DEVICES=0 python -m vispec.evaluation.gen_spec_answer_mmvet \
   --temperature=0.0
 ```
 --model-id test \
+--spec-model-path=/data/youngmin/checkpoints/fine/state_20
+--spec-model-path=/data/youngmin/models/ViSpec-llava-v1.6-vicuna-7b-hf
