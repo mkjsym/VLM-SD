@@ -13,7 +13,7 @@ parser.add_argument("--pw", type=float, default=0.1)
 parser.add_argument("--num-workers", type=int, default=2)
 parser.add_argument("--max-len", type=int, default=3200)
 parser.add_argument("--image-fc", type=bool, default=False)
-parser.add_argument("--use-ours", type=bool, default=False)
+parser.add_argument("--use-ours", type=int, default=1)
 parser.add_argument("--num-q", type=int, default=2)
 parser.add_argument("--mtp-steps", type=int, default=2)
 parser.add_argument("--begin-epoch", type=int, default=0)
@@ -66,10 +66,13 @@ import torch
 from safetensors import safe_open
 
 torch.backends.cuda.matmul.allow_tf32 = True
-from accelerate import Accelerator
+from accelerate import Accelerator, DistributedDataParallelKwargs # 모듈 추가
 from accelerate.utils import set_seed
 
 set_seed(0)
+# [수정] DDP 옵션 추가
+# ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
+# accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 accelerator = Accelerator()
 from typing import Any, Dict, List
 
@@ -406,6 +409,60 @@ def compute_loss(target_p, predict, loss_mask, topk=10):
 
     return 10 * ploss + 0.1 * rloss, out_head[:bsz, ...]
 
+def compute_loss_hivis(target_p, target_feature, predict, loss_mask, topk=10):
+    """
+    Args:
+        target_p: Target VLM의 출력 확률 분포 (Teacher Probability)
+        target_feature: Target VLM의 Hidden State (Teacher Feature, f_fused) <- 추가됨
+        predict: Drafter의 Hidden State (Student Feature, f')
+        loss_mask: 마스킹 텐서
+    """
+    bsz, seq_len, vocab_size = target_p.shape
+
+    out_head = head(predict) # predict는 Drafter의 Hidden State입니다.
+
+    # -------------------------------------------------------------------------
+    # 1. Feature Alignment Loss (L_fus) 추가
+    # 논문[cite: 311, 316]: L_fus = Smooth-L1(f_fused, f')
+    # Drafter의 Hidden State가 Target의 Fused Feature를 모사하도록 유도하여
+    # Residual r이 올바른 시각 정보를 보정하도록 학습시킵니다.
+    # -------------------------------------------------------------------------
+    student_feature = predict[loss_mask[..., 0]]        # 마스킹된 Drafter Hidden State
+    teacher_feature = target_feature[loss_mask[..., 0]] # 마스킹된 Target Hidden State
+    
+    # Hidden State 간의 차이 계산 (Smooth L1 Loss 사용)
+    floss = F.smooth_l1_loss(student_feature, teacher_feature)
+
+    # -------------------------------------------------------------------------
+    # 2. Existing Prob/Class Loss (L_cls)
+    # -------------------------------------------------------------------------
+    masked_logits = out_head[loss_mask[..., 0]]
+    target_p_masked = target_p[loss_mask[..., 0]] # 변수명 명확화
+    predict_p = F.softmax(masked_logits, dim=-1)
+    
+    l1_distance = torch.abs(predict_p - target_p_masked)
+    ploss = torch.mean(l1_distance.sum(dim=-1))
+
+    # -------------------------------------------------------------------------
+    # 3. Existing Ranking Loss (L_topK)
+    # -------------------------------------------------------------------------
+    _, topk_indices = torch.topk(target_p_masked, k=topk, dim=-1)
+    student_topk_logits = out_head[loss_mask[..., 0]].gather(-1, topk_indices)
+
+    reversed_logits = torch.flip(student_topk_logits, dims=[-1])
+    log_cumsum_exp = torch.logcumsumexp(reversed_logits, dim=-1)
+    log_denominator = torch.flip(log_cumsum_exp, dims=[-1])
+    log_likelihood = student_topk_logits - log_denominator
+    rloss = -torch.mean(log_likelihood.sum(-1))
+
+    # -------------------------------------------------------------------------
+    # 4. Total Loss Return
+    # 논문에서는 L_fus의 가중치를 1.0으로 둡니다. (L = L_fus + beta*L_cls + gamma*L_topK)
+    # -------------------------------------------------------------------------
+    # 기존 가중치 유지: ploss(10), rloss(0.1) + 새로 추가된 floss(1.0)
+    total_loss = floss + 0.1 * ploss + 0.1 * rloss
+    
+    return total_loss, out_head[:bsz, ...]
 
 @torch.no_grad()
 def getkacc(model, data, head, max_length=5):
@@ -438,6 +495,119 @@ def getkacc(model, data, head, max_length=5):
                         use_cache=True,
                         image_mask=image_mask,
                     )
+                last_hidden = out_hidden[:, -1:]
+                last_headout = head(last_hidden)
+                token = torch.argmax(last_headout, dim=-1)
+                output_ids.append(token)
+
+        else:
+            raise NotImplementedError
+
+        # return input_ids
+        return torch.cat(output_ids, dim=1)
+
+    hidden_states = data["hidden_states"]
+    input_ids = data["input_ids"]
+    inputs_embeds = data["inputs_embeds"]
+    loss_mask = data["loss_mask"]
+    image_mask = data["image_mask"]
+    target = data["target"]
+    total = [0 for _ in range(max_length)]
+    correct = [0 for _ in range(max_length)]
+    bs, seq_len = hidden_states.shape[0], hidden_states.shape[1]
+    target_headout = head(target)
+    target_ids = target_headout.argmax(dim=2)
+
+    for pre_len in range(1, seq_len):
+        if loss_mask[:, pre_len].sum() == 0:
+            continue
+        pre_hidden_states = hidden_states[:, :pre_len]
+        if input_ids is not None:
+            pre_input_ids = input_ids[:, :pre_len]
+        else:
+            pre_input_ids = None
+        if inputs_embeds is not None:
+            pre_inputs_embeds = inputs_embeds[:, :pre_len]
+        else:
+            pre_inputs_embeds = None
+        if image_mask is not None:
+            pre_image_mask = image_mask[:, :pre_len]
+        else:
+            pre_image_mask = None
+        outs = generate(
+            pre_hidden_states,
+            pre_input_ids,
+            pre_inputs_embeds,
+            head,
+            pre_image_mask,
+            max_length=max_length,
+        )
+        generate_ids = outs
+        for bid in range(bs):
+            for k in range(max_length):
+                if loss_mask[bid, pre_len + k] == 0:
+                    break
+                if pre_len + k >= seq_len:
+                    break
+                total[k] += 1
+                if generate_ids[bid, k] == target_ids[bid, pre_len + k - 1]:
+                    correct[k] += 1
+                else:
+                    for kk in range(k + 1, max_length):
+                        total[kk] += 1
+                    break
+
+    acc = [correct[i] / total[i] if total[i] != 0 else 0 for i in range(len(correct))]
+    return acc
+
+
+@torch.no_grad()
+def getkacc_hivis(model, data, head, max_length=5):
+    def generate(
+        hidden_states,
+        input_ids,
+        inputs_embeds,
+        head,
+        image_mask,
+        max_length=4,
+        use_cache=True,
+    ):
+        output_ids = []
+        if use_cache:
+            past_key_values = None
+            for i in range(max_length):
+                if past_key_values is not None:
+                    # [HiViS Logic: Drafting Phase]
+                    # i > 0 인 경우 (두 번째 토큰부터)
+                    # 이전 스텝의 Hidden State(last_hidden)와 현재 토큰(token)을 입력으로 사용
+                    # 이때 누적 오차 보정을 위해 draft_step_idx를 전달하여 Residual(r)을 더함
+                    
+                    draft_step_idx = i
+                    
+                    out_hidden, past_key_values = model(
+                        last_hidden,            # 이전 스텝의 Hidden State (f' 역할)
+                        input_ids=token,
+                        past_key_values=past_key_values,
+                        use_cache=True,
+                        image_mask=image_mask,  # HiViS에서는 내부적으로 무시되지만 인터페이스 유지
+                        draft_step_idx=draft_step_idx # [NEW] Residual 적용을 위한 인덱스
+                    )
+                else:
+                    # [HiViS Logic: Context/Prefill Phase]
+                    # i = 0 인 경우 (첫 번째 생성)
+                    # Target VLM에서 온 Fused Features(hidden_states)와 Text Embeddings를 융합
+                    # 첫 스텝은 Residual을 적용하지 않음 (draft_step_idx=None)
+                    
+                    out_hidden, past_key_values = model(
+                        hidden_states,          # Target VLM의 Fused Features (f_fused)
+                        input_ids=input_ids,
+                        inputs_embeds=inputs_embeds,
+                        use_cache=True,
+                        image_mask=image_mask,
+                        draft_step_idx=i     # [NEW] 첫 스텝은 Residual 없음
+                    )
+                
+                # 다음 스텝을 위해 Hidden State 업데이트
                 last_hidden = out_hidden[:, -1:]
                 last_headout = head(last_hidden)
                 token = torch.argmax(last_headout, dim=-1)
@@ -556,14 +726,23 @@ else:
             args.begin_epoch = begin_epoch
 
 config = EConfig.from_pretrained(train_config["config_path"])
-if args.use_ours:
+if args.use_ours == 1:
     from ..model.cnets_ours import Model
 
     model = Model(config, load_emb=True, path=args.basepath, num_q=args.num_q)
+    compute_loss = compute_loss
+elif args.use_ours == 2:
+    from ..model.cnets_hivis import Model
+
+    # [FIX 1] depth를 args.mtp_steps로 설정하여 사용하지 않을 파라미터 생성을 방지
+    model = Model(config, load_emb=True, path=args.basepath, num_q=args.num_q, depth=6)
+
+    compute_loss = compute_loss_hivis
 else:
     from ..model.cnets import Model
 
     model = Model(config, load_emb=True, path=args.basepath)
+    compute_loss = compute_loss
 
 model.gradient_checkpointing = False
 
@@ -626,13 +805,23 @@ for epoch in range(args.begin_epoch, num_epochs + 1):
     ):
         with accelerator.accumulate(model):
             optimizer.zero_grad()
-            predict = model(
-                data["hidden_states"],
-                input_ids=data["input_ids"],
-                inputs_embeds=data["inputs_embeds"],
-                attention_mask=data["attention_mask"],
-                image_mask=data["image_mask"],
-            )
+            if args.use_ours == 2:
+                predict = model(
+                        data["hidden_states"],
+                        input_ids=data["input_ids"],
+                        inputs_embeds=data["inputs_embeds"],
+                        attention_mask=data["attention_mask"],
+                        image_mask=data["image_mask"],
+                        draft_step_idx=0  # <--- [중요] 이 부분이 추가되어야 Residual이 학습됨
+                    )
+            else:
+                predict = model(
+                    data["hidden_states"],
+                    input_ids=data["input_ids"],
+                    inputs_embeds=data["inputs_embeds"],
+                    attention_mask=data["attention_mask"],
+                    image_mask=data["image_mask"],
+                )
             mtp_predicts = [predict]
             mtp_predict = predict
             for m in range(args.mtp_steps):
@@ -643,13 +832,23 @@ for epoch in range(args.begin_epoch, num_epochs + 1):
                     ),
                     dim=1,
                 )
-                mtp_predict = model(
-                    mtp_predict,
-                    input_ids=data["input_ids"],
-                    inputs_embeds=data["inputs_embeds"],
-                    attention_mask=data["attention_mask"],
-                    image_mask=data["image_mask"],
-                )
+                if args.use_ours == 2:
+                    mtp_predict = model(
+                        mtp_predict,
+                        input_ids=data["input_ids"],
+                        inputs_embeds=data["inputs_embeds"],
+                        attention_mask=data["attention_mask"],
+                        image_mask=data["image_mask"],
+                        draft_step_idx=m+1  # <--- [중요] 이 부분이 추가되어야 Residual이 학습됨
+                    )
+                else:
+                    mtp_predict = model(
+                        mtp_predict,
+                        input_ids=data["input_ids"],
+                        inputs_embeds=data["inputs_embeds"],
+                        attention_mask=data["attention_mask"],
+                        image_mask=data["image_mask"],
+                    )
                 mtp_predicts.append(mtp_predict)
             mtp_predicts = torch.cat(mtp_predicts, dim=0)
 
@@ -672,6 +871,14 @@ for epoch in range(args.begin_epoch, num_epochs + 1):
             loss_mask = loss_mask.expand(
                 [args.mtp_steps + 1] + list(loss_mask.shape)
             ).flatten(0, 1)
+            
+            # [FIX START] Target Feature도 MTP Step만큼 확장해야 합니다.
+            target_feature = data["hidden_states"]
+            target_feature = target_feature.unsqueeze(0).expand(
+                [args.mtp_steps + 1] + list(target_feature.shape)
+            ).flatten(0, 1)
+            # [FIX END]
+
             img_msk = torch.cat(
                 (
                     data["image_mask"][:, 1:],
@@ -679,7 +886,11 @@ for epoch in range(args.begin_epoch, num_epochs + 1):
                 ),
                 dim=1,
             )
-            loss, out_head = compute_loss(target_p, mtp_predicts, loss_mask, 10)
+            if args.use_ours == 2:
+                # 수정된 target_feature를 전달
+                loss, out_head = compute_loss_hivis(target_p, target_feature, mtp_predicts, loss_mask, 10)
+            else:
+                loss, out_head = compute_loss(target_p, mtp_predicts, loss_mask, 10)
 
             accelerator.backward(loss)
             if accelerator.sync_gradients:
@@ -753,7 +964,10 @@ for epoch in range(args.begin_epoch, num_epochs + 1):
     ):
         with torch.no_grad():
             if batch_idx < 10:
-                acces = getkacc(model, data, head, max_length=5)
+                if args.use_ours == 2:
+                    acces = getkacc_hivis(model, data, head, max_length=5)
+                else:
+                    acces = getkacc(model, data, head, max_length=5)
                 for i in range(len(acces)):
                     k_acc[i].append(acces[i])
             predict = model(
@@ -767,7 +981,10 @@ for epoch in range(args.begin_epoch, num_epochs + 1):
             target_p = nn.Softmax(dim=2)(target_head)
             target_p = target_p.detach()
             loss_mask = data["loss_mask"][:, :, None]
-            loss, out_head = compute_loss(target_p, predict, loss_mask)
+            if args.use_ours == 2:
+                loss, out_head = compute_loss_hivis(target_p, data["hidden_states"], predict, loss_mask, 10)
+            else:
+                loss, out_head = compute_loss(target_p, predict, loss_mask)
             _, predicted = torch.max(out_head, 2)
             _, target = torch.max(target_head, 2)
             ct = loss_mask.sum().item()

@@ -326,19 +326,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--total-token",
         type=int,
-        default=30,
+        default=59,
         help="The maximum number of new generated tokens.",
     )
     parser.add_argument(
         "--depth",
         type=int,
-        default=3,
+        default=5,
         help="The maximum number of new generated tokens.",
     )
     parser.add_argument(
         "--top-k",
         type=int,
-        default=8,
+        default=10,
         help="The maximum number of new generated tokens.",
     )
     parser.add_argument(

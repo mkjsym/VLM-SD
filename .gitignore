@@ -213,4 +213,7 @@ marimo/_lsp/
 __marimo__/
 
 # Streamlit
-.streamlit/secrets.toml
+coco_data/
+*.zip
+*.tar
+*.gz
