@@ -326,7 +326,7 @@ class LlamaAttention(nn.Module):
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
-        output_attentions: bool = False,
+        output_attentions: bool = True,
         use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         bsz, q_len, _ = hidden_states.size()
@@ -429,7 +429,7 @@ class LlamaAttention(nn.Module):
                 query_states.contiguous(),
                 key_states.contiguous(),
                 value_states.contiguous(),
-                attn_mask=attention_mask.to(query_states.dtype),
+                attn_mask = attention_mask.to(query_states.dtype) if attention_mask is not None else None,
             )
         else:
             attn_weights = (
@@ -745,10 +745,10 @@ class Model(nn.Module):
             ]
         )
         self.fc = nn.Linear(2 * config.hidden_size, config.hidden_size, bias=bias)
-        self.act = ACT2FN[config.hidden_act]
+        # self.act = ACT2FN[config.hidden_act]
         self.logsoftmax = nn.LogSoftmax(dim=-1)
 
-        self.imadpt = ImgAdaptor(config, num_q)
+        # self.imadpt = ImgAdaptor(config, num_q)
         self.img_fc = nn.Linear(2 * config.hidden_size, config.hidden_size, bias=bias)
 
         nn.init.zeros_(self.img_fc.weight[:, config.hidden_size :])
@@ -827,7 +827,7 @@ class Model(nn.Module):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         std=None,
-        image_mask=None,
+        image_mask=None, # 외부에서 압축된 마스크가 들어올 수 있음
     ):
         batch_size, seq_length, _ = hidden_states.shape
         seq_length_with_past = seq_length
@@ -835,30 +835,26 @@ class Model(nn.Module):
         past_key_values_real_length = 0
 
         if (input_ids is None) ^ (inputs_embeds is not None):
-            raise ValueError(
-                "You must specify exactly one of input_ids or inputs_embeds"
-            )
+            raise ValueError("You must specify exactly one of input_ids or inputs_embeds")
+        
         if inputs_embeds is None:
             with torch.no_grad():
                 inputs_embeds = self.embed_tokens(input_ids)
 
+        # 1. KV Cache 길이 확인
         if past_key_values is not None:
             past_key_values_length = past_key_values[0][0].shape[2]
             if len(past_key_values[0]) == 2:
                 past_key_values_real_length = past_key_values_length
             elif len(past_key_values[0]) == 3:
                 past_key_values_real_length = past_key_values[0][2]
-                # past_key_values_real_length = past_key_values_length  # TODO
             else:
                 raise NotImplementedError
             seq_length_with_past += past_key_values_length
 
+        # 2. Position IDs 설정 (외부에서 안 들어오면 자동 생성)
         if position_ids is None:
-            device = (
-                hidden_states.device
-                if hidden_states is not None
-                else inputs_embeds.device
-            )
+            device = hidden_states.device if hidden_states is not None else inputs_embeds.device
             position_ids = torch.arange(
                 past_key_values_real_length,
                 seq_length + past_key_values_real_length,
@@ -869,6 +865,7 @@ class Model(nn.Module):
         else:
             position_ids = position_ids.view(-1, seq_length).long()
 
+        # 3. Attention Mask 준비
         if attention_mask is None:
             attention_mask = torch.ones(
                 (batch_size, seq_length_with_past),
@@ -876,131 +873,37 @@ class Model(nn.Module):
                 device=hidden_states.device,
             )
 
-        if image_mask is not None and past_key_values is None:
-            image_mask = image_mask[:, 1:]
-            ends = torch.cat(
-                [image_mask[:, :-1] & ~image_mask[:, 1:], image_mask[:, -1:]], dim=1
+        # [수정] 기존의 복잡한 image_mask 기반 segment 재구성 로직(if/else 블록) 전체 삭제
+        # 외부에서 이미 압축된 입력을 주므로, 간단한 임베딩 융합만 수행하거나 그대로 통과시킵니다.
+        
+        # 4. 멀티모달 융합 (압축된 상태 그대로 수행)
+        # 기존 else 문에 있던 로직을 단순화하여 적용
+        if past_key_values is None:
+            # Prefill 단계: 초기 이미지 정보를 텍스트에 융합
+            self.last_img_hidden = torch.zeros_like(hidden_states[0, :1, ...])
+            
+        hidden_states = self.img_fc(
+            torch.cat(
+                (hidden_states, self.last_img_hidden.expand_as(hidden_states)),
+                dim=-1,
             )
-            last_img_ids = [torch.where(ends[b])[0] for b in range(ends.shape[0])]
-
-        attention_mask = self._prepare_decoder_attention_mask(
-            attention_mask,
-            (batch_size, seq_length),
-            hidden_states,
-            past_key_values_length,
         )
+        hidden_states = self.fc(torch.cat((inputs_embeds, hidden_states), dim=-1))
 
-        inputs_embeds = inputs_embeds.to(hidden_states)
-
-        trans_mat = None
-        if image_mask is not None and past_key_values is None:
-            new_hidden_states = []
-            new_position_ids = []
-            new_trans_mat = []
-            bsz = len(last_img_ids)
-            if bsz != 1:
-                raise NotImplementedError("Only support batch size 1")
-            num_ids = len(last_img_ids[0])
-            for b in range(bsz):
-                img_id_start = 0
-                h_s = []
-                p_i = []
-                eye_m = torch.eye(
-                    seq_length,
-                    dtype=hidden_states.dtype,
-                    device=hidden_states.device,
-                )
-                t_m = []
-                self.last_img_hidden = torch.zeros_like(hidden_states[0, :1, ...])
-                for idx in range(num_ids):
-                    img_id_end = last_img_ids[b][idx] + 1
-                    cur_img_msk = image_mask[b, img_id_start:img_id_end]
-                    txt_emd = inputs_embeds[b, img_id_start:img_id_end][~cur_img_msk]
-                    txt_hidden = hidden_states[b, img_id_start:img_id_end][~cur_img_msk]
-                    txt_img = self.last_img_hidden.expand_as(txt_hidden)
-                    hidden = self.img_fc(torch.cat((txt_hidden, txt_img), dim=-1))
-                    h_s.append(self.fc(torch.cat((txt_emd, hidden), dim=-1)))
-
-                    img_emd = inputs_embeds[b, img_id_start:img_id_end][
-                        cur_img_msk
-                    ].unsqueeze(0)
-                    img_adapted = self.imadpt(img_emd).squeeze(0)
-                    h_s.append(img_adapted[:-1])
-
-                    self.last_img_hidden = img_adapted[-1:]
-
-                    p_i += [
-                        position_ids[b, img_id_start:img_id_end][~cur_img_msk],
-                        position_ids[
-                            b, img_id_end - img_adapted.shape[0] + 1 : img_id_end
-                        ],
-                    ]
-                    t_m += [
-                        eye_m[img_id_start : img_id_start + h_s[0].shape[0], :],
-                        eye_m[img_id_end - h_s[1].shape[0] : img_id_end, :],
-                    ]
-                    img_id_start = img_id_end
-
-                rst_emd = inputs_embeds[b, img_id_start:]
-                rst_hidden = hidden_states[b, img_id_start:]
-                rst_img = self.last_img_hidden.expand_as(rst_hidden)
-                hidden = self.img_fc(torch.cat((rst_hidden, rst_img), dim=-1))
-                h_s.append(self.fc(torch.cat((rst_emd, hidden), dim=-1)))
-                p_i.append(position_ids[b, img_id_start:])
-                t_m.append(eye_m[img_id_start:, :])
-                h_s = torch.cat(h_s, dim=0).unsqueeze(0)
-                p_i = torch.cat(p_i, dim=0).unsqueeze(0)
-                t_m = torch.cat(t_m, dim=0).unsqueeze(0)
-                new_hidden_states.append(h_s)
-                new_position_ids.append(p_i)
-                new_trans_mat.append(t_m)
-
-            hidden_states = torch.cat(new_hidden_states, dim=0)
-            position_ids = torch.cat(new_position_ids, dim=0)
-            # position_ids = (
-            #     torch.arange(
-            #         hidden_states.shape[1],
-            #         dtype=torch.long,
-            #         device=hidden_states.device,
-            #     )
-            #     .unsqueeze(0)
-            #     .expand(len(last_img_ids), -1)
-            # ) # TODO
-            trans_mat = torch.cat(new_trans_mat, dim=0)
-
-            attention_mask = _make_causal_mask(
-                hidden_states.shape[:2],
-                torch.float32,
-                device=hidden_states.device,
-            )
-        else:
-            if past_key_values is None:
-                self.last_img_hidden = torch.zeros_like(hidden_states[0, :1, ...])
-                inputs_embeds[:, 0] += (self.imadpt(inputs_embeds[:, :1]) * 0).sum(
-                    1
-                )  # dummy
-            hidden_states = self.img_fc(
-                torch.cat(
-                    (hidden_states, self.last_img_hidden.expand_as(hidden_states)),
-                    dim=-1,
-                )
-            )
-            hidden_states = self.fc(torch.cat((inputs_embeds, hidden_states), dim=-1))
-
+        # 5. 트랜스포머 레이어 순전파
         all_hidden_states = () if output_hidden_states else None
         next_decoder_cache = () if use_cache else None
+        all_attentions = () if output_attentions else None # 모든 레이어 어텐션 수집용
 
         for idx, decoder_layer in enumerate(self.layers):
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
 
-            past_key_value = (
-                past_key_values[idx] if past_key_values is not None else None
-            )
+            past_key_value = past_key_values[idx] if past_key_values is not None else None
 
             layer_outputs = decoder_layer(
                 hidden_states,
-                attention_mask=attention_mask,
+                attention_mask=None, # 내부에서 인과 마스크 처리되도록 설정 가능
                 position_ids=position_ids,
                 past_key_value=past_key_value,
                 output_attentions=output_attentions,
@@ -1010,35 +913,244 @@ class Model(nn.Module):
             hidden_states = layer_outputs[0]
 
             if output_attentions:
-                attentions = layer_outputs[1]
-            else:
-                attentions = None
+                all_attentions += (layer_outputs[1],)
 
             if use_cache:
                 next_decoder_cache += (layer_outputs[2 if output_attentions else 1],)
 
-        if trans_mat is not None:
-            # print("Einsum equation:", "bn...,bnm->bm...") # einsum에 사용된 규칙 문자열
-            # for i, operand in enumerate(hidden_states):
-            #     print(f"Operand {i} shape:", operand.shape)
-            hidden_states = torch.einsum(
-                "bn...,bnm->bm...", hidden_states, trans_mat.to(hidden_states)
-            )
-            if attentions is not None:
-                attentions = torch.einsum(
-                    "bhn...,bnm->bhm...", attentions, trans_mat.to(attentions)
-                )
-                attentions = torch.einsum(
-                    "bh...n,bnm->bh...m", attentions, trans_mat.to(attentions)
-                )
+        # [수정] trans_mat을 이용한 복원 로직(torch.einsum) 전체 삭제
 
+        # 6. 결과 반환
         if use_cache:
             return hidden_states, next_decoder_cache
 
         if output_attentions:
-            return hidden_states, attentions
+            return hidden_states, all_attentions
 
         return hidden_states
+
+    # def forward(
+    #     self,
+    #     hidden_states,
+    #     input_ids: Optional[torch.Tensor] = None,
+    #     attention_mask: Optional[torch.Tensor] = None,
+    #     position_ids: Optional[torch.LongTensor] = None,
+    #     past_key_values: Optional[List[torch.FloatTensor]] = None,
+    #     inputs_embeds: Optional[torch.FloatTensor] = None,
+    #     use_cache: Optional[bool] = None,
+    #     output_attentions: Optional[bool] = None,
+    #     output_hidden_states: Optional[bool] = None,
+    #     return_dict: Optional[bool] = None,
+    #     std=None,
+    #     image_mask=None,
+    # ):
+    #     batch_size, seq_length, _ = hidden_states.shape
+    #     seq_length_with_past = seq_length
+    #     past_key_values_length = 0
+    #     past_key_values_real_length = 0
+
+    #     if (input_ids is None) ^ (inputs_embeds is not None):
+    #         raise ValueError(
+    #             "You must specify exactly one of input_ids or inputs_embeds"
+    #         )
+    #     if inputs_embeds is None:
+    #         with torch.no_grad():
+    #             inputs_embeds = self.embed_tokens(input_ids)
+
+    #     if past_key_values is not None:
+    #         past_key_values_length = past_key_values[0][0].shape[2]
+    #         if len(past_key_values[0]) == 2:
+    #             past_key_values_real_length = past_key_values_length
+    #         elif len(past_key_values[0]) == 3:
+    #             past_key_values_real_length = past_key_values[0][2]
+    #             # past_key_values_real_length = past_key_values_length  # TODO
+    #         else:
+    #             raise NotImplementedError
+    #         seq_length_with_past += past_key_values_length
+
+    #     if position_ids is None:
+    #         device = (
+    #             hidden_states.device
+    #             if hidden_states is not None
+    #             else inputs_embeds.device
+    #         )
+    #         position_ids = torch.arange(
+    #             past_key_values_real_length,
+    #             seq_length + past_key_values_real_length,
+    #             dtype=torch.long,
+    #             device=device,
+    #         )
+    #         position_ids = position_ids.unsqueeze(0).expand(batch_size, -1)
+    #     else:
+    #         position_ids = position_ids.view(-1, seq_length).long()
+
+    #     if attention_mask is None:
+    #         attention_mask = torch.ones(
+    #             (batch_size, seq_length_with_past),
+    #             dtype=torch.bool,
+    #             device=hidden_states.device,
+    #         )
+
+    #     if image_mask is not None and past_key_values is None:
+    #         image_mask = image_mask[:, 1:]
+    #         ends = torch.cat(
+    #             [image_mask[:, :-1] & ~image_mask[:, 1:], image_mask[:, -1:]], dim=1
+    #         )
+    #         last_img_ids = [torch.where(ends[b])[0] for b in range(ends.shape[0])]
+
+    #     attention_mask = self._prepare_decoder_attention_mask(
+    #         attention_mask,
+    #         (batch_size, seq_length),
+    #         hidden_states,
+    #         past_key_values_length,
+    #     )
+
+    #     inputs_embeds = inputs_embeds.to(hidden_states)
+
+    #     trans_mat = None
+    #     if image_mask is not None and past_key_values is None:
+    #         new_hidden_states = []
+    #         new_position_ids = []
+    #         new_trans_mat = []
+    #         bsz = len(last_img_ids)
+    #         if bsz != 1:
+    #             raise NotImplementedError("Only support batch size 1")
+    #         num_ids = len(last_img_ids[0])
+    #         for b in range(bsz):
+    #             img_id_start = 0
+    #             h_s = []
+    #             p_i = []
+    #             eye_m = torch.eye(
+    #                 seq_length,
+    #                 dtype=hidden_states.dtype,
+    #                 device=hidden_states.device,
+    #             )
+    #             t_m = []
+    #             self.last_img_hidden = torch.zeros_like(hidden_states[0, :1, ...])
+    #             for idx in range(num_ids):
+    #                 img_id_end = last_img_ids[b][idx] + 1
+    #                 cur_img_msk = image_mask[b, img_id_start:img_id_end]
+    #                 txt_emd = inputs_embeds[b, img_id_start:img_id_end][~cur_img_msk]
+    #                 txt_hidden = hidden_states[b, img_id_start:img_id_end][~cur_img_msk]
+    #                 txt_img = self.last_img_hidden.expand_as(txt_hidden)
+    #                 hidden = self.img_fc(torch.cat((txt_hidden, txt_img), dim=-1))
+    #                 h_s.append(self.fc(torch.cat((txt_emd, hidden), dim=-1)))
+
+    #                 img_emd = inputs_embeds[b, img_id_start:img_id_end][
+    #                     cur_img_msk
+    #                 ].unsqueeze(0)
+    #                 img_adapted = self.imadpt(img_emd).squeeze(0)
+    #                 h_s.append(img_adapted[:-1])
+
+    #                 self.last_img_hidden = img_adapted[-1:]
+
+    #                 p_i += [
+    #                     position_ids[b, img_id_start:img_id_end][~cur_img_msk],
+    #                     position_ids[
+    #                         b, img_id_end - img_adapted.shape[0] + 1 : img_id_end
+    #                     ],
+    #                 ]
+    #                 t_m += [
+    #                     eye_m[img_id_start : img_id_start + h_s[0].shape[0], :],
+    #                     eye_m[img_id_end - h_s[1].shape[0] : img_id_end, :],
+    #                 ]
+    #                 img_id_start = img_id_end
+
+    #             rst_emd = inputs_embeds[b, img_id_start:]
+    #             rst_hidden = hidden_states[b, img_id_start:]
+    #             rst_img = self.last_img_hidden.expand_as(rst_hidden)
+    #             hidden = self.img_fc(torch.cat((rst_hidden, rst_img), dim=-1))
+    #             h_s.append(self.fc(torch.cat((rst_emd, hidden), dim=-1)))
+    #             p_i.append(position_ids[b, img_id_start:])
+    #             t_m.append(eye_m[img_id_start:, :])
+    #             h_s = torch.cat(h_s, dim=0).unsqueeze(0)
+    #             p_i = torch.cat(p_i, dim=0).unsqueeze(0)
+    #             t_m = torch.cat(t_m, dim=0).unsqueeze(0)
+    #             new_hidden_states.append(h_s)
+    #             new_position_ids.append(p_i)
+    #             new_trans_mat.append(t_m)
+
+    #         hidden_states = torch.cat(new_hidden_states, dim=0)
+    #         position_ids = torch.cat(new_position_ids, dim=0)
+    #         # position_ids = (
+    #         #     torch.arange(
+    #         #         hidden_states.shape[1],
+    #         #         dtype=torch.long,
+    #         #         device=hidden_states.device,
+    #         #     )
+    #         #     .unsqueeze(0)
+    #         #     .expand(len(last_img_ids), -1)
+    #         # ) # TODO
+    #         trans_mat = torch.cat(new_trans_mat, dim=0)
+
+    #         attention_mask = _make_causal_mask(
+    #             hidden_states.shape[:2],
+    #             torch.float32,
+    #             device=hidden_states.device,
+    #         )
+    #     else:
+    #         if past_key_values is None:
+    #             self.last_img_hidden = torch.zeros_like(hidden_states[0, :1, ...])
+    #             inputs_embeds[:, 0] += (self.imadpt(inputs_embeds[:, :1]) * 0).sum(
+    #                 1
+    #             )  # dummy
+    #         hidden_states = self.img_fc(
+    #             torch.cat(
+    #                 (hidden_states, self.last_img_hidden.expand_as(hidden_states)),
+    #                 dim=-1,
+    #             )
+    #         )
+    #         hidden_states = self.fc(torch.cat((inputs_embeds, hidden_states), dim=-1))
+
+    #     all_hidden_states = () if output_hidden_states else None
+    #     next_decoder_cache = () if use_cache else None
+
+    #     for idx, decoder_layer in enumerate(self.layers):
+    #         if output_hidden_states:
+    #             all_hidden_states += (hidden_states,)
+
+    #         past_key_value = (
+    #             past_key_values[idx] if past_key_values is not None else None
+    #         )
+
+    #         layer_outputs = decoder_layer(
+    #             hidden_states,
+    #             attention_mask=attention_mask,
+    #             position_ids=position_ids,
+    #             past_key_value=past_key_value,
+    #             output_attentions=output_attentions,
+    #             use_cache=use_cache,
+    #         )
+
+    #         hidden_states = layer_outputs[0]
+
+    #         if output_attentions:
+    #             attentions = layer_outputs[1]
+    #         else:
+    #             attentions = None
+
+    #         if use_cache:
+    #             next_decoder_cache += (layer_outputs[2 if output_attentions else 1],)
+
+    #     if trans_mat is not None:
+    #         hidden_states = torch.einsum(
+    #             "bn...,bnm->bm...", hidden_states, trans_mat.to(hidden_states)
+    #         )
+    #         if attentions is not None:
+    #             attentions = torch.einsum(
+    #                 "bhn...,bnm->bhm...", attentions, trans_mat.to(attentions)
+    #             )
+    #             attentions = torch.einsum(
+    #                 "bh...n,bnm->bh...m", attentions, trans_mat.to(attentions)
+    #             )
+
+    #     if use_cache:
+    #         return hidden_states, next_decoder_cache
+
+    #     if output_attentions:
+    #         return hidden_states, attentions
+
+    #     return hidden_states
 
     def reset_kv(self):
         self.stable_kv = None

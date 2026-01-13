@@ -744,17 +744,24 @@ class Model(nn.Module):
                 for index in range(config.num_hidden_layers)
             ]
         )
-        self.fc = nn.Linear(2 * config.hidden_size, config.hidden_size, bias=bias)
-        self.act = ACT2FN[config.hidden_act]
+        # self.fc = nn.Linear(2 * config.hidden_size, config.hidden_size, bias=bias)
+        # self.act = ACT2FN[config.hidden_act]
         self.logsoftmax = nn.LogSoftmax(dim=-1)
 
-        self.imadpt = ImgAdaptor(config, num_q)
-        self.img_fc = nn.Linear(2 * config.hidden_size, config.hidden_size, bias=bias)
+        # [HiViS] ImgAdaptor 및 img_fc 제거 -> Fusion용 Linear Layer 추가
+        # w1: Fused Feature(or Hidden State)용 투영
+        # w2: Text Embedding용 투영
+        self.fusion_w1 = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
+        self.fusion_w2 = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
 
-        nn.init.zeros_(self.img_fc.weight[:, config.hidden_size :])
-        nn.init.eye_(self.img_fc.weight[:, : config.hidden_size])
-        if self.img_fc.bias is not None:
-            nn.init.zeros_(self.img_fc.bias)
+        # [HiViS] Step-dependent Bias Correction Residuals
+        # Drafting 단계별로 더해질 학습 가능한 파라미터 (r^0, r^1, ...)
+        # w_resid: Residual을 투영할 레이어 (논문의 r * w)
+        self.residuals = nn.Parameter(torch.zeros(4, config.hidden_size))
+        self.w_resid = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
+
+        # [HiViS] Initialize Residuals to small values
+        nn.init.normal_(self.residuals, mean=0, std=0.02)
 
         self.last_img_hidden = None
 
@@ -828,6 +835,7 @@ class Model(nn.Module):
         return_dict: Optional[bool] = None,
         std=None,
         image_mask=None,
+        draft_step_idx: Optional[int] = None, # [HiViS] 현재 Drafting Step 인덱스
     ):
         batch_size, seq_length, _ = hidden_states.shape
         seq_length_with_past = seq_length
@@ -841,6 +849,32 @@ class Model(nn.Module):
         if inputs_embeds is None:
             with torch.no_grad():
                 inputs_embeds = self.embed_tokens(input_ids)
+
+        # [HiViS Fusion Logic Implementation]
+        # -------------------------------------------------------------------------
+        # 1. Projection (Feature & Text)
+        proj_features = self.fusion_w1(hidden_states)
+        proj_text = self.fusion_w2(inputs_embeds)
+        
+        # 2. Semantic Fusion (Element-wise Addition)
+        # drafter_input = f_fused * w1 + e_text * w2
+        drafter_input = proj_features + proj_text
+
+        # 3. Residual Addition (Only during drafting/decoding)
+        # Input = Fusion + r^i * w
+        if draft_step_idx is not None:
+            # 현재 스텝에 맞는 residual 벡터 가져오기
+            # draft_step_idx가 residuals 길이를 넘지 않도록 클램핑하거나 모듈러 연산 (보통 depth만큼만 씀)
+            idx = min(draft_step_idx, len(self.residuals) - 1)
+            residual_vec = self.residuals[idx] 
+            residual_term = self.w_resid(residual_vec) # Project residual
+            
+            # Broadcasting: (Batch, Seq, Dim) + (Dim) -> (Batch, Seq, Dim)
+            drafter_input = drafter_input + residual_term
+        # -------------------------------------------------------------------------
+
+        # 이후 로직은 drafter_input을 사용하여 진행
+        hidden_states = drafter_input
 
         if past_key_values is not None:
             past_key_values_length = past_key_values[0][0].shape[2]
@@ -890,103 +924,6 @@ class Model(nn.Module):
             past_key_values_length,
         )
 
-        inputs_embeds = inputs_embeds.to(hidden_states)
-
-        trans_mat = None
-        if image_mask is not None and past_key_values is None:
-            new_hidden_states = []
-            new_position_ids = []
-            new_trans_mat = []
-            bsz = len(last_img_ids)
-            if bsz != 1:
-                raise NotImplementedError("Only support batch size 1")
-            num_ids = len(last_img_ids[0])
-            for b in range(bsz):
-                img_id_start = 0
-                h_s = []
-                p_i = []
-                eye_m = torch.eye(
-                    seq_length,
-                    dtype=hidden_states.dtype,
-                    device=hidden_states.device,
-                )
-                t_m = []
-                self.last_img_hidden = torch.zeros_like(hidden_states[0, :1, ...])
-                for idx in range(num_ids):
-                    img_id_end = last_img_ids[b][idx] + 1
-                    cur_img_msk = image_mask[b, img_id_start:img_id_end]
-                    txt_emd = inputs_embeds[b, img_id_start:img_id_end][~cur_img_msk]
-                    txt_hidden = hidden_states[b, img_id_start:img_id_end][~cur_img_msk]
-                    txt_img = self.last_img_hidden.expand_as(txt_hidden)
-                    hidden = self.img_fc(torch.cat((txt_hidden, txt_img), dim=-1))
-                    h_s.append(self.fc(torch.cat((txt_emd, hidden), dim=-1)))
-
-                    img_emd = inputs_embeds[b, img_id_start:img_id_end][
-                        cur_img_msk
-                    ].unsqueeze(0)
-                    img_adapted = self.imadpt(img_emd).squeeze(0)
-                    h_s.append(img_adapted[:-1])
-
-                    self.last_img_hidden = img_adapted[-1:]
-
-                    p_i += [
-                        position_ids[b, img_id_start:img_id_end][~cur_img_msk],
-                        position_ids[
-                            b, img_id_end - img_adapted.shape[0] + 1 : img_id_end
-                        ],
-                    ]
-                    t_m += [
-                        eye_m[img_id_start : img_id_start + h_s[0].shape[0], :],
-                        eye_m[img_id_end - h_s[1].shape[0] : img_id_end, :],
-                    ]
-                    img_id_start = img_id_end
-
-                rst_emd = inputs_embeds[b, img_id_start:]
-                rst_hidden = hidden_states[b, img_id_start:]
-                rst_img = self.last_img_hidden.expand_as(rst_hidden)
-                hidden = self.img_fc(torch.cat((rst_hidden, rst_img), dim=-1))
-                h_s.append(self.fc(torch.cat((rst_emd, hidden), dim=-1)))
-                p_i.append(position_ids[b, img_id_start:])
-                t_m.append(eye_m[img_id_start:, :])
-                h_s = torch.cat(h_s, dim=0).unsqueeze(0)
-                p_i = torch.cat(p_i, dim=0).unsqueeze(0)
-                t_m = torch.cat(t_m, dim=0).unsqueeze(0)
-                new_hidden_states.append(h_s)
-                new_position_ids.append(p_i)
-                new_trans_mat.append(t_m)
-
-            hidden_states = torch.cat(new_hidden_states, dim=0)
-            position_ids = torch.cat(new_position_ids, dim=0)
-            # position_ids = (
-            #     torch.arange(
-            #         hidden_states.shape[1],
-            #         dtype=torch.long,
-            #         device=hidden_states.device,
-            #     )
-            #     .unsqueeze(0)
-            #     .expand(len(last_img_ids), -1)
-            # ) # TODO
-            trans_mat = torch.cat(new_trans_mat, dim=0)
-
-            attention_mask = _make_causal_mask(
-                hidden_states.shape[:2],
-                torch.float32,
-                device=hidden_states.device,
-            )
-        else:
-            if past_key_values is None:
-                self.last_img_hidden = torch.zeros_like(hidden_states[0, :1, ...])
-                inputs_embeds[:, 0] += (self.imadpt(inputs_embeds[:, :1]) * 0).sum(
-                    1
-                )  # dummy
-            hidden_states = self.img_fc(
-                torch.cat(
-                    (hidden_states, self.last_img_hidden.expand_as(hidden_states)),
-                    dim=-1,
-                )
-            )
-            hidden_states = self.fc(torch.cat((inputs_embeds, hidden_states), dim=-1))
-
         all_hidden_states = () if output_hidden_states else None
         next_decoder_cache = () if use_cache else None
 
@@ -1016,21 +953,6 @@ class Model(nn.Module):
 
             if use_cache:
                 next_decoder_cache += (layer_outputs[2 if output_attentions else 1],)
-
-        if trans_mat is not None:
-            # print("Einsum equation:", "bn...,bnm->bm...") # einsum에 사용된 규칙 문자열
-            # for i, operand in enumerate(hidden_states):
-            #     print(f"Operand {i} shape:", operand.shape)
-            hidden_states = torch.einsum(
-                "bn...,bnm->bm...", hidden_states, trans_mat.to(hidden_states)
-            )
-            if attentions is not None:
-                attentions = torch.einsum(
-                    "bhn...,bnm->bhm...", attentions, trans_mat.to(attentions)
-                )
-                attentions = torch.einsum(
-                    "bh...n,bnm->bh...m", attentions, trans_mat.to(attentions)
-                )
 
         if use_cache:
             return hidden_states, next_decoder_cache
@@ -1097,6 +1019,7 @@ class Model(nn.Module):
                 past_key_values=self.stable_kv,
                 use_cache=True,
                 image_mask=image_mask,
+                draft_step_idx=0  # <--- [중요] 이 부분이 추가되어야 Residual이 학습됨
             )
         else:
             if inputs_embeds is not None:
@@ -1107,6 +1030,7 @@ class Model(nn.Module):
                 inputs_embeds=inputs_embeds,
                 use_cache=True,
                 image_mask=image_mask,
+                draft_step_idx=0  # <--- [중요] 이 부분이 추가되어야 Residual이 학습됨
             )
         self.stable_kv = past_key_values
         last_hidden = out_hidden[:, -1]
@@ -1136,6 +1060,7 @@ class Model(nn.Module):
                 position_ids=position_ids,
                 use_cache=True,
                 image_mask=image_mask,
+                draft_step_idx=i+1  # <--- [중요] 이 부분이 추가되어야 Residual이 학습됨
             )
             len_posi += 1
 

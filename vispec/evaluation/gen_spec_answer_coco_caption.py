@@ -22,9 +22,10 @@ from ..model.kv_cache import initialize_past_key_values
 from ..model.utils import *
 from .coco_caption_prompt import build_prompt
 
+import aiohttp
 
 def load_data(args):
-    dataset = load_dataset("HuggingFaceM4/COCO", split="test")
+    dataset = load_dataset("HuggingFaceM4/COCO", split="test", storage_options={'client_kwargs': {'timeout': aiohttp.ClientTimeout(total=7200)}})
     imgid_indices = {d["imgid"]: idx for idx, d in enumerate(dataset)}
     filtered_dataset = dataset.select(imgid_indices.values())
     return filtered_dataset.shuffle(seed=42).select(range(0, 100))
@@ -99,8 +100,23 @@ def get_model_answers(
 ):
     # temperature = 0.0
 
-    if args.use_ours:
+    if args.use_ours == 1:
         from ..model.spec_model_ours import SpecModel
+
+        model = SpecModel.from_pretrained(
+            base_model_path=base_model_path,
+            spec_model_path=spec_model_path,
+            total_token=args.total_token,
+            depth=args.depth,
+            top_k=args.top_k,
+            torch_dtype="auto",
+            low_cpu_mem_usage=True,
+            # load_in_8bit=True,
+            device_map="auto",
+            num_q=args.num_q,
+        )
+    elif args.use_ours == 2:
+        from ..model.spec_model_hivis import SpecModel
 
         model = SpecModel.from_pretrained(
             base_model_path=base_model_path,
@@ -342,19 +358,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--total-token",
         type=int,
-        default=30,
+        default=59,
         help="The maximum number of new generated tokens.",
     )
     parser.add_argument(
         "--depth",
         type=int,
-        default=3,
+        default=5,
         help="The maximum number of new generated tokens.",
     )
     parser.add_argument(
         "--top-k",
         type=int,
-        default=8,
+        default=10,
         help="The maximum number of new generated tokens.",
     )
     parser.add_argument(
@@ -392,7 +408,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--image-fc", type=bool, default=False)
     parser.add_argument("--hf-home", type=str, default=None)
-    parser.add_argument("--use-ours", type=bool, default=False)
+    parser.add_argument("--use-ours", type=int, default=2)
     parser.add_argument("--num-q", type=int, default=2)
     parser.add_argument("--use-medusa", type=bool, default=False)
 

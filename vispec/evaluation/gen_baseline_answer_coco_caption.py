@@ -23,9 +23,10 @@ from ..model.spec_model import SpecModel
 from ..model.utils import *
 from .coco_caption_prompt import build_prompt
 
+import aiohttp
 
 def load_data(args):
-    dataset = load_dataset("HuggingFaceM4/COCO", split="test")
+    dataset = load_dataset("HuggingFaceM4/COCO", split="test", storage_options={'client_kwargs': {'timeout': aiohttp.ClientTimeout(total=72000)}})
     imgid_indices = {d["imgid"]: idx for idx, d in enumerate(dataset)}
     filtered_dataset = dataset.select(imgid_indices.values())
     return filtered_dataset.shuffle(seed=42).select(range(0, 100))
