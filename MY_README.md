@@ -45,7 +45,7 @@ accelerate launch --multi_gpu \
 accelerate launch --multi_gpu \
   -m --mixed_precision=bf16 \
   vispec.train.main_mtp \
-  --cpdir=/data/youngmin/checkpoints/hivis_loss_revised/ \
+  --cpdir=/data/youngmin/checkpoints/hivis_loss_revised3/ \
   --basepath=/data/youngmin/models/llava-v1.6-vicuna-7b-hf \
   --begin-epoch=0 \
   --bs=1 \
@@ -80,7 +80,7 @@ CUDA_VISIBLE_DEVICES=0 python -m vispec.evaluation.gen_baseline_answer_coco_capt
 CUDA_VISIBLE_DEVICES=1 python -m vispec.evaluation.gen_spec_answer_coco_caption \
   --base-model-path=/data/youngmin/models/llava-v1.6-vicuna-7b-hf \
   --bench-name=/data/youngmin/results/SD_coco \
-  --spec-model-path=/data/youngmin/checkpoints/hivis_d6/state_20 \
+  --spec-model-path=/data/youngmin/checkpoints/hivis_loss_revised2/state_20 \
   --num-q=2 \
   --depth=5 \
   --top-k=10 \

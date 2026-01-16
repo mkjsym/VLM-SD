@@ -460,7 +460,7 @@ def compute_loss_hivis(target_p, target_feature, predict, loss_mask, topk=10):
     # 논문에서는 L_fus의 가중치를 1.0으로 둡니다. (L = L_fus + beta*L_cls + gamma*L_topK)
     # -------------------------------------------------------------------------
     # 기존 가중치 유지: ploss(10), rloss(0.1) + 새로 추가된 floss(1.0)
-    total_loss = floss + 0.1 * ploss + 0.1 * rloss
+    total_loss = floss + 0.1 * ploss + rloss
     
     return total_loss, out_head[:bsz, ...]
 

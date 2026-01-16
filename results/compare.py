@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # 사용자가 제공한 새로운 형식의 파일
     baseline_file = "results/coco/sqa-llava-v1.6-vicuna-7b-fp16-baseline-temperature-0.0.jsonl" 
     # 기존 형식의 파일
-    test_file = "results/coco/sqa-llava-v1.6-vicuna-7b-fp16-temperature-0.0.jsonl"
+    test_file = "results/coco/hivis_loss_revised2.jsonl"
     # ---------------------
 
     print("=" * 35)
