@@ -45,7 +45,7 @@ accelerate launch --multi_gpu \
 accelerate launch --multi_gpu \
   -m --mixed_precision=bf16 \
   vispec.train.main_mtp \
-  --cpdir=/data/youngmin/checkpoints/hivis_loss_revised3/ \
+  --cpdir=/data/youngmin/checkpoints/fine_q4/ \
   --basepath=/data/youngmin/models/llava-v1.6-vicuna-7b-hf \
   --begin-epoch=0 \
   --bs=1 \
@@ -53,11 +53,11 @@ accelerate launch --multi_gpu \
   --loadpath=/data/youngmin/checkpoints/pre/state_20/model.safetensors \
   --lr=3e-6 \
   --max-len=2048 \
-  --mtp-steps=5 \
-  --num-q=2 \
+  --mtp-steps=1 \
+  --num-q=4 \
   --num-workers=8 \
   --tmpdir=/home/youngmin/workspace/ViSpec/datasets/llava_pretrain_gen \
-  --use-ours=2
+  --use-ours=1
 ```
 --use-ours: 1=vispec, 2=hivis, others
 
@@ -66,11 +66,11 @@ accelerate launch --multi_gpu \
 3.1 Baseline Speed Evaluation
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python -m vispec.evaluation.gen_baseline_answer_coco_caption \
-  --base-model-path=/data/youngmin/models/llava-v1.6-vicuna-7b-hf \
-  --bench-name=/data/youngmin/results/AR_coco \
-  --spec-model-path=/data/youngmin/models/ViSpec-llava-v1.6-vicuna-7b-hf \
-  --temperature=1.0
+CUDA_VISIBLE_DEVICES=0 python -m vispec.evaluation.gen_baseline_answer_mmvet \
+  --base-model-path=/data/youngmin/models/llava-1.5-7b-hf \
+  --bench-name=/data/youngmin/results/AR_mmvet \
+  --spec-model-path=/data/youngmin/models/ViSpec-llava-1.5-7b-hf \
+  --temperature=0.0
 ```
 --model-id test \
 
@@ -78,19 +78,18 @@ CUDA_VISIBLE_DEVICES=0 python -m vispec.evaluation.gen_baseline_answer_coco_capt
 
 ```bash
 CUDA_VISIBLE_DEVICES=1 python -m vispec.evaluation.gen_spec_answer_coco_caption \
-  --base-model-path=/data/youngmin/models/llava-v1.6-vicuna-7b-hf \
+  --base-model-path=/data/youngmin/models/llava-1.5-7b-hf \
   --bench-name=/data/youngmin/results/SD_coco \
-  --spec-model-path=/data/youngmin/checkpoints/hivis_loss_revised2/state_20 \
+  --spec-model-path=/data/youngmin/models/ViSpec-llava-1.5-7b-hf \
   --num-q=2 \
   --depth=5 \
   --top-k=10 \
-  --total-token=59 \
-  --use-ours=2 \
+  --total-token=60 \
+  --use-ours=1 \
   --temperature=0.0
 ```
 --use-ours: 1=vispec, 2=hivis, others
-
---model-id test \
+--model-id test
 --spec-model-path=/data/youngmin/checkpoints/fine/state_20
 --spec-model-path=/data/youngmin/checkpoints/aircache/state_20
 --spec-model-path=/data/youngmin/models/ViSpec-llava-v1.6-vicuna-7b-hf
