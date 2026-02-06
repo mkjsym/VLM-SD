@@ -1,0 +1,902 @@
+[
+  {
+    "relative_index": 0,
+    "global_index": 2404,
+    "token_id": 450,
+    "token_text": "▁The"
+  },
+  {
+    "relative_index": 1,
+    "global_index": 2405,
+    "token_id": 1967,
+    "token_text": "▁image"
+  },
+  {
+    "relative_index": 2,
+    "global_index": 2406,
+    "token_id": 1401,
+    "token_text": "▁dep"
+  },
+  {
+    "relative_index": 3,
+    "global_index": 2407,
+    "token_id": 919,
+    "token_text": "ict"
+  },
+  {
+    "relative_index": 4,
+    "global_index": 2408,
+    "token_id": 29879,
+    "token_text": "s"
+  },
+  {
+    "relative_index": 5,
+    "global_index": 2409,
+    "token_id": 263,
+    "token_text": "▁a"
+  },
+  {
+    "relative_index": 6,
+    "global_index": 2410,
+    "token_id": 2022,
+    "token_text": "▁person"
+  },
+  {
+    "relative_index": 7,
+    "global_index": 2411,
+    "token_id": 13407,
+    "token_text": "▁standing"
+  },
+  {
+    "relative_index": 8,
+    "global_index": 2412,
+    "token_id": 373,
+    "token_text": "▁on"
+  },
+  {
+    "relative_index": 9,
+    "global_index": 2413,
+    "token_id": 263,
+    "token_text": "▁a"
+  },
+  {
+    "relative_index": 10,
+    "global_index": 2414,
+    "token_id": 15007,
+    "token_text": "▁snow"
+  },
+  {
+    "relative_index": 11,
+    "global_index": 2415,
+    "token_id": 29899,
+    "token_text": "-"
+  },
+  {
+    "relative_index": 12,
+    "global_index": 2416,
+    "token_id": 11911,
+    "token_text": "cover"
+  },
+  {
+    "relative_index": 13,
+    "global_index": 2417,
+    "token_id": 287,
+    "token_text": "ed"
+  },
+  {
+    "relative_index": 14,
+    "global_index": 2418,
+    "token_id": 24968,
+    "token_text": "▁slope"
+  },
+  {
+    "relative_index": 15,
+    "global_index": 2419,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 16,
+    "global_index": 2420,
+    "token_id": 5517,
+    "token_text": "▁likely"
+  },
+  {
+    "relative_index": 17,
+    "global_index": 2421,
+    "token_id": 297,
+    "token_text": "▁in"
+  },
+  {
+    "relative_index": 18,
+    "global_index": 2422,
+    "token_id": 263,
+    "token_text": "▁a"
+  },
+  {
+    "relative_index": 19,
+    "global_index": 2423,
+    "token_id": 14378,
+    "token_text": "▁mountain"
+  },
+  {
+    "relative_index": 20,
+    "global_index": 2424,
+    "token_id": 681,
+    "token_text": "ous"
+  },
+  {
+    "relative_index": 21,
+    "global_index": 2425,
+    "token_id": 4038,
+    "token_text": "▁area"
+  },
+  {
+    "relative_index": 22,
+    "global_index": 2426,
+    "token_id": 29889,
+    "token_text": "."
+  },
+  {
+    "relative_index": 23,
+    "global_index": 2427,
+    "token_id": 450,
+    "token_text": "▁The"
+  },
+  {
+    "relative_index": 24,
+    "global_index": 2428,
+    "token_id": 5375,
+    "token_text": "▁individual"
+  },
+  {
+    "relative_index": 25,
+    "global_index": 2429,
+    "token_id": 338,
+    "token_text": "▁is"
+  },
+  {
+    "relative_index": 26,
+    "global_index": 2430,
+    "token_id": 591,
+    "token_text": "▁we"
+  },
+  {
+    "relative_index": 27,
+    "global_index": 2431,
+    "token_id": 4362,
+    "token_text": "aring"
+  },
+  {
+    "relative_index": 28,
+    "global_index": 2432,
+    "token_id": 263,
+    "token_text": "▁a"
+  },
+  {
+    "relative_index": 29,
+    "global_index": 2433,
+    "token_id": 7933,
+    "token_text": "▁green"
+  },
+  {
+    "relative_index": 30,
+    "global_index": 2434,
+    "token_id": 28015,
+    "token_text": "▁jack"
+  },
+  {
+    "relative_index": 31,
+    "global_index": 2435,
+    "token_id": 300,
+    "token_text": "et"
+  },
+  {
+    "relative_index": 32,
+    "global_index": 2436,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 33,
+    "global_index": 2437,
+    "token_id": 4628,
+    "token_text": "▁black"
+  },
+  {
+    "relative_index": 34,
+    "global_index": 2438,
+    "token_id": 282,
+    "token_text": "▁p"
+  },
+  {
+    "relative_index": 35,
+    "global_index": 2439,
+    "token_id": 1934,
+    "token_text": "ants"
+  },
+  {
+    "relative_index": 36,
+    "global_index": 2440,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 37,
+    "global_index": 2441,
+    "token_id": 322,
+    "token_text": "▁and"
+  },
+  {
+    "relative_index": 38,
+    "global_index": 2442,
+    "token_id": 4628,
+    "token_text": "▁black"
+  },
+  {
+    "relative_index": 39,
+    "global_index": 2443,
+    "token_id": 1045,
+    "token_text": "▁bo"
+  },
+  {
+    "relative_index": 40,
+    "global_index": 2444,
+    "token_id": 1862,
+    "token_text": "ots"
+  },
+  {
+    "relative_index": 41,
+    "global_index": 2445,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 42,
+    "global_index": 2446,
+    "token_id": 322,
+    "token_text": "▁and"
+  },
+  {
+    "relative_index": 43,
+    "global_index": 2447,
+    "token_id": 338,
+    "token_text": "▁is"
+  },
+  {
+    "relative_index": 44,
+    "global_index": 2448,
+    "token_id": 1592,
+    "token_text": "▁equ"
+  },
+  {
+    "relative_index": 45,
+    "global_index": 2449,
+    "token_id": 16242,
+    "token_text": "ipped"
+  },
+  {
+    "relative_index": 46,
+    "global_index": 2450,
+    "token_id": 411,
+    "token_text": "▁with"
+  },
+  {
+    "relative_index": 47,
+    "global_index": 2451,
+    "token_id": 14993,
+    "token_text": "▁ski"
+  },
+  {
+    "relative_index": 48,
+    "global_index": 2452,
+    "token_id": 1248,
+    "token_text": "▁pol"
+  },
+  {
+    "relative_index": 49,
+    "global_index": 2453,
+    "token_id": 267,
+    "token_text": "es"
+  },
+  {
+    "relative_index": 50,
+    "global_index": 2454,
+    "token_id": 29889,
+    "token_text": "."
+  },
+  {
+    "relative_index": 51,
+    "global_index": 2455,
+    "token_id": 2688,
+    "token_text": "▁They"
+  },
+  {
+    "relative_index": 52,
+    "global_index": 2456,
+    "token_id": 2615,
+    "token_text": "▁appear"
+  },
+  {
+    "relative_index": 53,
+    "global_index": 2457,
+    "token_id": 304,
+    "token_text": "▁to"
+  },
+  {
+    "relative_index": 54,
+    "global_index": 2458,
+    "token_id": 367,
+    "token_text": "▁be"
+  },
+  {
+    "relative_index": 55,
+    "global_index": 2459,
+    "token_id": 3063,
+    "token_text": "▁looking"
+  },
+  {
+    "relative_index": 56,
+    "global_index": 2460,
+    "token_id": 701,
+    "token_text": "▁up"
+  },
+  {
+    "relative_index": 57,
+    "global_index": 2461,
+    "token_id": 2935,
+    "token_text": "wards"
+  },
+  {
+    "relative_index": 58,
+    "global_index": 2462,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 59,
+    "global_index": 2463,
+    "token_id": 10075,
+    "token_text": "▁possibly"
+  },
+  {
+    "relative_index": 60,
+    "global_index": 2464,
+    "token_id": 472,
+    "token_text": "▁at"
+  },
+  {
+    "relative_index": 61,
+    "global_index": 2465,
+    "token_id": 278,
+    "token_text": "▁the"
+  },
+  {
+    "relative_index": 62,
+    "global_index": 2466,
+    "token_id": 14744,
+    "token_text": "▁sky"
+  },
+  {
+    "relative_index": 63,
+    "global_index": 2467,
+    "token_id": 470,
+    "token_text": "▁or"
+  },
+  {
+    "relative_index": 64,
+    "global_index": 2468,
+    "token_id": 278,
+    "token_text": "▁the"
+  },
+  {
+    "relative_index": 65,
+    "global_index": 2469,
+    "token_id": 18830,
+    "token_text": "▁surrounding"
+  },
+  {
+    "relative_index": 66,
+    "global_index": 2470,
+    "token_id": 24400,
+    "token_text": "▁landscape"
+  },
+  {
+    "relative_index": 67,
+    "global_index": 2471,
+    "token_id": 29889,
+    "token_text": "."
+  },
+  {
+    "relative_index": 68,
+    "global_index": 2472,
+    "token_id": 450,
+    "token_text": "▁The"
+  },
+  {
+    "relative_index": 69,
+    "global_index": 2473,
+    "token_id": 14744,
+    "token_text": "▁sky"
+  },
+  {
+    "relative_index": 70,
+    "global_index": 2474,
+    "token_id": 338,
+    "token_text": "▁is"
+  },
+  {
+    "relative_index": 71,
+    "global_index": 2475,
+    "token_id": 22669,
+    "token_text": "▁partly"
+  },
+  {
+    "relative_index": 72,
+    "global_index": 2476,
+    "token_id": 9570,
+    "token_text": "▁cloud"
+  },
+  {
+    "relative_index": 73,
+    "global_index": 2477,
+    "token_id": 29891,
+    "token_text": "y"
+  },
+  {
+    "relative_index": 74,
+    "global_index": 2478,
+    "token_id": 411,
+    "token_text": "▁with"
+  },
+  {
+    "relative_index": 75,
+    "global_index": 2479,
+    "token_id": 263,
+    "token_text": "▁a"
+  },
+  {
+    "relative_index": 76,
+    "global_index": 2480,
+    "token_id": 2846,
+    "token_text": "▁few"
+  },
+  {
+    "relative_index": 77,
+    "global_index": 2481,
+    "token_id": 1652,
+    "token_text": "▁fl"
+  },
+  {
+    "relative_index": 78,
+    "global_index": 2482,
+    "token_id": 3096,
+    "token_text": "uff"
+  },
+  {
+    "relative_index": 79,
+    "global_index": 2483,
+    "token_id": 29891,
+    "token_text": "y"
+  },
+  {
+    "relative_index": 80,
+    "global_index": 2484,
+    "token_id": 4796,
+    "token_text": "▁white"
+  },
+  {
+    "relative_index": 81,
+    "global_index": 2485,
+    "token_id": 27091,
+    "token_text": "▁clouds"
+  },
+  {
+    "relative_index": 82,
+    "global_index": 2486,
+    "token_id": 29574,
+    "token_text": "▁scattered"
+  },
+  {
+    "relative_index": 83,
+    "global_index": 2487,
+    "token_id": 4822,
+    "token_text": "▁across"
+  },
+  {
+    "relative_index": 84,
+    "global_index": 2488,
+    "token_id": 278,
+    "token_text": "▁the"
+  },
+  {
+    "relative_index": 85,
+    "global_index": 2489,
+    "token_id": 7254,
+    "token_text": "▁blue"
+  },
+  {
+    "relative_index": 86,
+    "global_index": 2490,
+    "token_id": 1518,
+    "token_text": "▁exp"
+  },
+  {
+    "relative_index": 87,
+    "global_index": 2491,
+    "token_id": 12350,
+    "token_text": "anse"
+  },
+  {
+    "relative_index": 88,
+    "global_index": 2492,
+    "token_id": 29889,
+    "token_text": "."
+  },
+  {
+    "relative_index": 89,
+    "global_index": 2493,
+    "token_id": 512,
+    "token_text": "▁In"
+  },
+  {
+    "relative_index": 90,
+    "global_index": 2494,
+    "token_id": 278,
+    "token_text": "▁the"
+  },
+  {
+    "relative_index": 91,
+    "global_index": 2495,
+    "token_id": 3239,
+    "token_text": "▁background"
+  },
+  {
+    "relative_index": 92,
+    "global_index": 2496,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 93,
+    "global_index": 2497,
+    "token_id": 727,
+    "token_text": "▁there"
+  },
+  {
+    "relative_index": 94,
+    "global_index": 2498,
+    "token_id": 526,
+    "token_text": "▁are"
+  },
+  {
+    "relative_index": 95,
+    "global_index": 2499,
+    "token_id": 15007,
+    "token_text": "▁snow"
+  },
+  {
+    "relative_index": 96,
+    "global_index": 2500,
+    "token_id": 29899,
+    "token_text": "-"
+  },
+  {
+    "relative_index": 97,
+    "global_index": 2501,
+    "token_id": 11911,
+    "token_text": "cover"
+  },
+  {
+    "relative_index": 98,
+    "global_index": 2502,
+    "token_id": 287,
+    "token_text": "ed"
+  },
+  {
+    "relative_index": 99,
+    "global_index": 2503,
+    "token_id": 19223,
+    "token_text": "▁mountains"
+  },
+  {
+    "relative_index": 100,
+    "global_index": 2504,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 101,
+    "global_index": 2505,
+    "token_id": 322,
+    "token_text": "▁and"
+  },
+  {
+    "relative_index": 102,
+    "global_index": 2506,
+    "token_id": 278,
+    "token_text": "▁the"
+  },
+  {
+    "relative_index": 103,
+    "global_index": 2507,
+    "token_id": 28439,
+    "token_text": "▁terrain"
+  },
+  {
+    "relative_index": 104,
+    "global_index": 2508,
+    "token_id": 338,
+    "token_text": "▁is"
+  },
+  {
+    "relative_index": 105,
+    "global_index": 2509,
+    "token_id": 29833,
+    "token_text": "▁rug"
+  },
+  {
+    "relative_index": 106,
+    "global_index": 2510,
+    "token_id": 3192,
+    "token_text": "ged"
+  },
+  {
+    "relative_index": 107,
+    "global_index": 2511,
+    "token_id": 411,
+    "token_text": "▁with"
+  },
+  {
+    "relative_index": 108,
+    "global_index": 2512,
+    "token_id": 23150,
+    "token_text": "▁rocks"
+  },
+  {
+    "relative_index": 109,
+    "global_index": 2513,
+    "token_id": 322,
+    "token_text": "▁and"
+  },
+  {
+    "relative_index": 110,
+    "global_index": 2514,
+    "token_id": 29234,
+    "token_text": "▁sparse"
+  },
+  {
+    "relative_index": 111,
+    "global_index": 2515,
+    "token_id": 18655,
+    "token_text": "▁veget"
+  },
+  {
+    "relative_index": 112,
+    "global_index": 2516,
+    "token_id": 362,
+    "token_text": "ation"
+  },
+  {
+    "relative_index": 113,
+    "global_index": 2517,
+    "token_id": 29889,
+    "token_text": "."
+  },
+  {
+    "relative_index": 114,
+    "global_index": 2518,
+    "token_id": 450,
+    "token_text": "▁The"
+  },
+  {
+    "relative_index": 115,
+    "global_index": 2519,
+    "token_id": 12463,
+    "token_text": "▁overall"
+  },
+  {
+    "relative_index": 116,
+    "global_index": 2520,
+    "token_id": 9088,
+    "token_text": "▁scene"
+  },
+  {
+    "relative_index": 117,
+    "global_index": 2521,
+    "token_id": 14661,
+    "token_text": "▁suggests"
+  },
+  {
+    "relative_index": 118,
+    "global_index": 2522,
+    "token_id": 263,
+    "token_text": "▁a"
+  },
+  {
+    "relative_index": 119,
+    "global_index": 2523,
+    "token_id": 13851,
+    "token_text": "▁winter"
+  },
+  {
+    "relative_index": 120,
+    "global_index": 2524,
+    "token_id": 14717,
+    "token_text": "▁sports"
+  },
+  {
+    "relative_index": 121,
+    "global_index": 2525,
+    "token_id": 6354,
+    "token_text": "▁activity"
+  },
+  {
+    "relative_index": 122,
+    "global_index": 2526,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 123,
+    "global_index": 2527,
+    "token_id": 10075,
+    "token_text": "▁possibly"
+  },
+  {
+    "relative_index": 124,
+    "global_index": 2528,
+    "token_id": 14993,
+    "token_text": "▁ski"
+  },
+  {
+    "relative_index": 125,
+    "global_index": 2529,
+    "token_id": 292,
+    "token_text": "ing"
+  },
+  {
+    "relative_index": 126,
+    "global_index": 2530,
+    "token_id": 470,
+    "token_text": "▁or"
+  },
+  {
+    "relative_index": 127,
+    "global_index": 2531,
+    "token_id": 15007,
+    "token_text": "▁snow"
+  },
+  {
+    "relative_index": 128,
+    "global_index": 2532,
+    "token_id": 845,
+    "token_text": "sh"
+  },
+  {
+    "relative_index": 129,
+    "global_index": 2533,
+    "token_id": 7297,
+    "token_text": "oe"
+  },
+  {
+    "relative_index": 130,
+    "global_index": 2534,
+    "token_id": 292,
+    "token_text": "ing"
+  },
+  {
+    "relative_index": 131,
+    "global_index": 2535,
+    "token_id": 29892,
+    "token_text": ","
+  },
+  {
+    "relative_index": 132,
+    "global_index": 2536,
+    "token_id": 2183,
+    "token_text": "▁given"
+  },
+  {
+    "relative_index": 133,
+    "global_index": 2537,
+    "token_id": 278,
+    "token_text": "▁the"
+  },
+  {
+    "relative_index": 134,
+    "global_index": 2538,
+    "token_id": 10122,
+    "token_text": "▁presence"
+  },
+  {
+    "relative_index": 135,
+    "global_index": 2539,
+    "token_id": 310,
+    "token_text": "▁of"
+  },
+  {
+    "relative_index": 136,
+    "global_index": 2540,
+    "token_id": 278,
+    "token_text": "▁the"
+  },
+  {
+    "relative_index": 137,
+    "global_index": 2541,
+    "token_id": 2071,
+    "token_text": "▁sk"
+  },
+  {
+    "relative_index": 138,
+    "global_index": 2542,
+    "token_id": 275,
+    "token_text": "is"
+  },
+  {
+    "relative_index": 139,
+    "global_index": 2543,
+    "token_id": 322,
+    "token_text": "▁and"
+  },
+  {
+    "relative_index": 140,
+    "global_index": 2544,
+    "token_id": 278,
+    "token_text": "▁the"
+  },
+  {
+    "relative_index": 141,
+    "global_index": 2545,
+    "token_id": 15007,
+    "token_text": "▁snow"
+  },
+  {
+    "relative_index": 142,
+    "global_index": 2546,
+    "token_id": 29891,
+    "token_text": "y"
+  },
+  {
+    "relative_index": 143,
+    "global_index": 2547,
+    "token_id": 5177,
+    "token_text": "▁environment"
+  },
+  {
+    "relative_index": 144,
+    "global_index": 2548,
+    "token_id": 29889,
+    "token_text": "."
+  },
+  {
+    "relative_index": 145,
+    "global_index": 2549,
+    "token_id": 2,
+    "token_text": "</s>"
+  },
+  {
+    "relative_index": 146,
+    "global_index": 2550,
+    "token_id": 13,
+    "token_text": "<0x0A>"
+  },
+  {
+    "relative_index": 147,
+    "global_index": 2551,
+    "token_id": 1576,
+    "token_text": "The"
+  },
+  {
+    "relative_index": 148,
+    "global_index": 2552,
+    "token_id": 2022,
+    "token_text": "▁person"
+  },
+  {
+    "relative_index": 149,
+    "global_index": 2553,
+    "token_id": 29915,
+    "token_text": "'"
+  }
+]
